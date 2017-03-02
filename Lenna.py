@@ -1,10 +1,14 @@
+#! /usr/bin/python3
 # -*- coding: utf-8 -*-
 #0000;0000;0000
 #0000;****;7/16
 #3/16;5/16;1/16
 #poměry
+from math import *
 from tkinter import *
+import numpy as np
 from PIL import Image, ImageTk
+
 
 def clamp(n, minn, maxn):
     return max(min(maxn, n), minn)
@@ -13,59 +17,65 @@ class aplikace:
     def __init__(self):
         self.okno=Tk()
         self.buttons = Frame(self.okno)
-#        self.dotPrint=Button(self.buttons, text="kresli Dobře",command=lambda: self.kresliDobre(255))
-        self.dotPrint=Button(self.buttons, text="kresli Dobře",command=self.kresliDobre)
-        self.dotPrint.grid(row=0,column=0)
-        self.threshold=Button(self.buttons, text="kresli Práh",command=self.kresliPrah)
-        self.threshold.grid(row=1,column=0)
-#        self.bla.pack()
-#        self.bla2.pack()
 
-        self.dotSlide = Scale(self.buttons, from_=2, to=20, orient=HORIZONTAL)
+        self.basic = Frame(self.buttons,bd=3,relief=RAISED)
+        Grid.columnconfigure(self.basic, 0,weight=1)
+
+        self.dotPrint=Button(self.basic, text="dot",command=self.kresliDobre)
+        self.dotPrint.grid(row=0,column=0,sticky=("N", "S", "E", "W"))
+        self.threshold=Button(self.basic, text="threshold",command=self.kresliPrah)
+        self.threshold.grid(row=1,column=0,sticky=("N", "S", "E", "W"))
+
+        self.dotSlide = Scale(self.basic, from_=2, to=20, orient=HORIZONTAL)
         self.dotSlide.set(2)
         self.dotSlide.grid(row=0,column=1)
 
-        self.prahejbatko = Scale(self.buttons,from_=0, to=255, orient=HORIZONTAL)
-        self.prahejbatko.set(128)
-        self.prahejbatko.grid(row=1,column=1)
-#        self.prahejbatko.pack()
+        self.thresholdSlide = Scale(self.basic,from_=0, to=255, orient=HORIZONTAL)
+        self.thresholdSlide.set(128)
+        self.thresholdSlide.grid(row=1,column=1)
 
-        self.brighten = Button(self.buttons, text="Brighten",command=self.kresliSvetlost)
-        self.brighten.grid(row=0,column=3)
-        self.brightSlide = Scale(self.buttons,from_=-255, to=255, orient=HORIZONTAL)
+        self.brighten = Button(self.basic, text="Brighten",command=self.kresliSvetlost)
+        self.brighten.grid(row=0,column=3,sticky=("N", "S", "E", "W"))
+        self.brightSlide = Scale(self.basic,from_=-255, to=255, orient=HORIZONTAL)
         self.brightSlide.set(0)
         self.brightSlide.grid(row=0,column=4)
 
-        self.inverse = Button(self.buttons,text="Invert",command=self.kresliInverse)
-        self.inverse.grid(row=1,column=3)
+        self.inverse = Button(self.basic,text="Invert",command=self.kresliInverse)
+        self.inverse.grid(row=1,column=3,sticky=("N", "S", "E", "W"))
 
-        self.convolution = Frame(self.buttons)
+        self.basic.grid(row=0,column=0, rowspan=2)
+
+        self.convolution = Frame(self.buttons,bd=3,relief=RAISED)
 
 
-        self.matrix = [[Entry(self.convolution) for x in range(3)] for y in range(3)]
+        self.matrix = [[Entry(self.convolution, width=3) for x in range(3)] for y in range(3)]
         for x in range(3):
             for y in range(3):
                 self.matrix[x][y].insert(0,"0")
                 self.matrix[x][y].grid(row=x,column=y)
 
+        self.convSide = Frame(self.convolution)
 
-        self.convolution.grid(row=0,rowspan=2,column=5,columnspan=1)
-
-        self.useConv = Button(self.buttons,text="convolute",command=self.kresliMatrix)
-        self.useConv.grid(row=0,column=6)
-        self.divisor = Entry(self.buttons)
+        self.useConv = Button(self.convSide,text="convolute",command=self.kresliMatrix)
+        self.useConv.grid(row=0,column=2,sticky=("N", "S", "E", "W"))
+        self.divisor = Entry(self.convSide,width=5)
         self.divisor.insert(0,"1")
-        self.divisor.grid(row=1,column=6)
+        self.divisor.grid(row=1,column=2)
+
+        self.convSide.grid(row=0,rowspan=3,column=3)
+
+        self.convolution.grid(row=0,column=1, rowspan=2)
+
 
 #
-        self.presets = Frame(self.buttons)
+        self.presets = Frame(self.convolution)
         self.blur = Button(self.presets,text="blur",command=lambda: self.setMatrix("blur"))
         self.sharpen = Button(self.presets,text="sharpen",command=lambda: self.setMatrix("sharpen"))
         self.edge = Button(self.presets,text="edges",command=lambda: self.setMatrix("edge"))
-        self.blur.pack()
-        self.sharpen.pack()
-        self.edge.pack()
-        self.presets.grid(row=0,rowspan=2,column=7)
+        self.blur.pack(fill=BOTH)
+        self.sharpen.pack(fill=BOTH)
+        self.edge.pack(fill=BOTH)
+        self.presets.grid(row=0,column=4, rowspan=3)
 #
         self.rotate = Frame(self.buttons)
         self.angle = Scale(self.rotate,  from_=-45, to=45, orient=HORIZONTAL)
@@ -73,7 +83,10 @@ class aplikace:
         self.angle.grid(row=0,column=0,columnspan=2)
 
         self.rotButton = Button(self.rotate, text="rotate",command=self.rotAngle)
-        self.rotButton.grid(row=1,column=0,columnspan=2)
+        self.rotButton.grid(row=1,column=0,sticky=("N", "S", "E", "W"))
+
+        self.rotButFast = Button(self.rotate, text="fast",command=self.rotFast)
+        self.rotButFast.grid(row=1,column=1,sticky=("N", "S", "E", "W"))
 
         self.rotCCW = Button(self.rotate,text="CCW",command=lambda: self.rot90(-1))
         self.rotCCW.grid(row=2,column=0)
@@ -81,7 +94,7 @@ class aplikace:
         self.rotCW = Button(self.rotate,text="CW",command=lambda: self.rot90(1))
         self.rotCW.grid(row=2,column=1)
 
-        self.rotate.grid(row=0,rowspan=2,column=8)
+        self.rotate.grid(row=0,column=4, rowspan=2)
 #
 
         self.buttons.pack()
@@ -128,7 +141,7 @@ class aplikace:
         self.obraz2=self.platno.create_image(256,256,image=self.photo2)
         
     def kresliPrah(self):
-        self.prah = self.prahejbatko.get()
+        self.prah = self.thresholdSlide.get()
         for y in range(512):
             for x in range(512):
                 h=sum(self.pixely[x,y])/3
@@ -141,6 +154,7 @@ class aplikace:
 
     def kresliSvetlost(self):
         kolik = self.brightSlide.get()
+        
         for y in range(512):
             for x in range(512):
                 (r,g,b) = self.pixely[x,y]
@@ -159,6 +173,7 @@ class aplikace:
         self.obraz2=self.platno.create_image(256,256,image=self.photo2)
 
     def kresliMatrix(self):
+        cnt=0
         kernel = self.getMartix()
         for y in range(1,511):
             for x in range(1,511):
@@ -169,19 +184,43 @@ class aplikace:
                                    g + self.pixely[x+kernelX-1,y+kernelY-1][1] * kernel[kernelX][kernelY],
                                    b + self.pixely[x+kernelX-1,y+kernelY-1][2] * kernel[kernelX][kernelY],
                                    )
+                        cnt+=1
                 self.pixely2[x,y]=(clamp(round(r),0,255),clamp(round(g),0,255),clamp(round(b),0,255))
+        self.photo2=ImageTk.PhotoImage(self.image2)
+        self.obraz2=self.platno.create_image(256,256,image=self.photo2)
+
+    def rotAngle(self):
+        
+        self.image2=Image.new("RGB",(512,512),(255,255,255)) #Novej obrázek, celej bílej
+        self.pixely2=self.image2.load()
+
+        a=radians(self.angle.get())
+        matrix = np.array([[ cos(a), sin(a)],
+                           [-sin(a), cos(a)]])
+        for x in range(512):
+            for y in range(512):
+                vec=np.array([x-254,y-254])
+                res=matrix.dot(vec)
+                nX=round(res[0]+254)
+                nY=round(res[1]+254)
+                if 0 <= nX < 512 and 0 <= nY < 512:
+                    self.pixely2[x,y] = self.pixely[nX,nY]
+                else:
+                    self.pixely2[x,y] = (255,255,255)
 
         self.photo2=ImageTk.PhotoImage(self.image2)
         self.obraz2=self.platno.create_image(256,256,image=self.photo2)
 
-
-    def rotAngle(self, angle):
-        pass
+    def rotFast(self):
+        self.photo2=ImageTk.PhotoImage(self.image.rotate((-self.angle.get())%360))
+        self.obraz2=self.platno.create_image(256,256,image=self.photo2)
 
     def rot90(self,direction):
+
+        print("start")
         if direction==1:
-            for y in range(512):
-                for x in range(512):
+            for x in range(512):
+                for y in range(512):
                     self.pixely2[512-1-y,x] = self.pixely[x,y]
             self.photo2=ImageTk.PhotoImage(self.image2)
             self.obraz2=self.platno.create_image(256,256,image=self.photo2)
@@ -191,6 +230,7 @@ class aplikace:
                     self.pixely2[y,512-1-x] = self.pixely[x,y]
             self.photo2=ImageTk.PhotoImage(self.image2)
             self.obraz2=self.platno.create_image(256,256,image=self.photo2)
+        print("stop")
 
 
 
