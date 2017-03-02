@@ -36,7 +36,7 @@ class aplikace:
 
         self.brighten = Button(self.basic, text="Brighten",command=self.kresliSvetlost)
         self.brighten.grid(row=0,column=3,sticky=("N", "S", "E", "W"))
-        self.brightSlide = Scale(self.basic,from_=-255, to=255, orient=HORIZONTAL)
+        self.brightSlide = Scale(self.basic,from_=-1, to=1, orient=HORIZONTAL, resolution=0.05)
         self.brightSlide.set(0)
         self.brightSlide.grid(row=0,column=4)
 
@@ -153,12 +153,18 @@ class aplikace:
         self.obraz2=self.platno.create_image(256,256,image=self.photo2)
 
     def kresliSvetlost(self):
-        kolik = self.brightSlide.get()
-        
+        alpha = self.brightSlide.get()
+        new=350
+        if alpha<0:
+            new=0
+            alpha=abs(alpha)
         for y in range(512):
             for x in range(512):
                 (r,g,b) = self.pixely[x,y]
-                self.pixely2[x,y]=(clamp(r+kolik,0,255),clamp(g+kolik,0,255),clamp(b+kolik,0,255))
+                self.pixely2[x,y] = (clamp(round(r+(new - r)*alpha),0,255),
+                                     clamp(round(g+(new - r)*alpha),0,255),
+                                     clamp(round(b+(new - r)*alpha),0,255),
+                                    )
                 
         self.photo2=ImageTk.PhotoImage(self.image2)
         self.obraz2=self.platno.create_image(256,256,image=self.photo2)
@@ -199,10 +205,10 @@ class aplikace:
                            [-sin(a), cos(a)]])
         for x in range(512):
             for y in range(512):
-                vec=np.array([x-254,y-254])
+                vec=np.array([x-255,y-255])
                 res=matrix.dot(vec)
-                nX=round(res[0]+254)
-                nY=round(res[1]+254)
+                nX=round(res[0]+255)
+                nY=round(res[1]+255)
                 if 0 <= nX < 512 and 0 <= nY < 512:
                     self.pixely2[x,y] = self.pixely[nX,nY]
                 else:
@@ -216,8 +222,6 @@ class aplikace:
         self.obraz2=self.platno.create_image(256,256,image=self.photo2)
 
     def rot90(self,direction):
-
-        print("start")
         if direction==1:
             for x in range(512):
                 for y in range(512):
@@ -230,7 +234,6 @@ class aplikace:
                     self.pixely2[y,512-1-x] = self.pixely[x,y]
             self.photo2=ImageTk.PhotoImage(self.image2)
             self.obraz2=self.platno.create_image(256,256,image=self.photo2)
-        print("stop")
 
 
 
@@ -238,10 +241,10 @@ class aplikace:
     def getMartix(self):
         try:
             if self.divisor.get() != '':
-                divisor = int(self.divisor.get())
+                divisor = float(self.divisor.get())
         except:
             divisor = 1
-            print("divisor not integer")
+            print("divisor not numeral")
 
         if divisor==0:
             divisor = 1
@@ -268,32 +271,27 @@ class aplikace:
         self.divisor.delete(0,END)
 
         if type=="blur":
-            for x in range(3):
-                for y in range(3):
-                    self.matrix[x][y].insert(0,"1")
+            mat = [ [1,1,1],
+                    [1,1,1],
+                    [1,1,1],
+                  ]
             self.divisor.insert(0,"9")
         elif type=="sharpen":
-            self.matrix[0][0].insert(0,"0")
-            self.matrix[0][1].insert(0,"-1")
-            self.matrix[0][2].insert(0,"0")
-            self.matrix[1][0].insert(0,"-1")
-            self.matrix[1][1].insert(0,"5")
-            self.matrix[1][2].insert(0,"-1")
-            self.matrix[2][0].insert(0,"0")
-            self.matrix[2][1].insert(0,"-1")
-            self.matrix[2][2].insert(0,"0")
+            mat = [ [ 0,-1, 0],
+                    [-1, 5,-1],
+                    [ 0,-1, 0],
+                  ]
             self.divisor.insert(0,"1")
         elif type=="edge":
-            self.matrix[0][0].insert(0,"-1")
-            self.matrix[0][1].insert(0,"-1")
-            self.matrix[0][2].insert(0,"-1")
-            self.matrix[1][0].insert(0,"-1")
-            self.matrix[1][1].insert(0,"8")
-            self.matrix[1][2].insert(0,"-1")
-            self.matrix[2][0].insert(0,"-1")
-            self.matrix[2][1].insert(0,"-1")
-            self.matrix[2][2].insert(0,"-1")
+            mat = [ [-1,-1,-1],
+                    [-1, 8,-1],
+                    [-1,-1,-1],
+                    ]
             self.divisor.insert(0,"1")
+
+        for x in range(3):
+            for y in range(3):
+                self.matrix[x][y].insert(0,str(mat[x][y]))
 
 
 
