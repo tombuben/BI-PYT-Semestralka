@@ -113,130 +113,125 @@ class aplikace:
         self.image=Image.open("Lenna.png")
         self.photo=ImageTk.PhotoImage(self.image)
         self.obraz=self.imagePlatno.create_image(256,256,image=self.photo)
-        self.pixely=self.image.load()   #2D pole hodnot pixelu
-        self.image2=Image.new("RGB",(512,512),(255,255,255)) #Novej obrázek, celej bílej
-        self.pixely2=self.image2.load()
-        self.chybadalsi=[0]*512
-        self.chybaradek=[0]*512
+        self.pixely=np.asarray(self.image, dtype=np.uint8)   #2D pole hodnot pixelu
 
+        self.pixely2=np.zeros((512,512,3))
     def kresliDobre(self):
+        self.pixely2.setflags(write=1)
+
         l=self.dotSlide.get()-1
-        blok = 256.0/l
+        blok = 255/l
+
+        chybadalsi=[0]*512
+        chybaradek=[0]*512
+        self.pixely2[:,:,0] = self.pixely2[:,:,1] = self.pixely2[:,:,2] = ((self.pixely[:,:,0].astype(np.uint32) + self.pixely[:,:,1] + self.pixely[:,:,2])/3).astype(np.uint8)
+
         ch=0
         for y in range(512):
             for x in range(512):
-                h=self.chybadalsi[x]+sum(self.pixely[x,y])/3 #Tmavos mezi 0-255
+                h=chybadalsi[x]+self.pixely2[x,y,0] #Tmavos mezi 0-255
                 v=int(round(h/blok)*blok)
-                self.pixely2[x,y]=(v,v,v)
+                self.pixely2[x,y]=[v,v,v]
                 ch=h-v
                 if (x<510 and x>0):
-                #   print str(ch)+str("-")+str(round(7/16.0*ch))
-                    self.chybadalsi[x+1]+=round(7/16.0*ch)
-                    self.chybaradek[x+1]+=round(1/16.0*ch)
-                    self.chybaradek[x]+=round(5/16.0*ch)
-                    self.chybaradek[x-1]+=round(3/16.0*ch)
-            self.chybadalsi=self.chybaradek
-            self.chybaradek=[0]*512
+                    chybadalsi[x+1]+=round(7/16 *ch)
+                    chybaradek[x+1]+=round(1/16 *ch)
+                    chybaradek[x]  +=round(5/16 *ch)
+                    chybaradek[x-1]+=round(3/16 *ch)
+            chybadalsi=chybaradek
+            chybaradek=[0]*512
+
+        self.image2 = Image.fromarray(self.pixely2)
         self.photo2=ImageTk.PhotoImage(self.image2)
-        self.obraz2=self.platno.create_image(256,256,image=self.photo2)
-        
+        self.obraz2=self.platno.create_image(257,257,image=self.photo2)
+    
     def kresliPrah(self):
-        self.prah = self.thresholdSlide.get()
-        for y in range(512):
-            for x in range(512):
-                h=sum(self.pixely[x,y])/3
-                if (h < self.prah):
-                    self.pixely2[x,y]=(0,0,0)
-                else:
-                    self.pixely2[x,y]=(255,255,255)
+        self.pixely2.setflags(write=1)
+
+        prah = self.thresholdSlide.get()
+        # udelat cernobile
+        self.pixely2[:,:,0] = self.pixely2[:,:,1] = self.pixely2[:,:,2] = ((self.pixely[:,:,0].astype(np.uint32) + self.pixely[:,:,1] + self.pixely[:,:,2])/3).astype(np.uint8)
+        # odecist prah a vynasobit, pak oriznout na 0-255
+        self.pixely2 = ((self.pixely2.astype(np.int32)-prah)*255).clip(0,255).astype(np.uint8)
+        self.image2 = Image.fromarray(self.pixely2)
         self.photo2=ImageTk.PhotoImage(self.image2)
-        self.obraz2=self.platno.create_image(256,256,image=self.photo2)
+        self.obraz2=self.platno.create_image(257,257,image=self.photo2)
 
     def kresliSvetlost(self):
+        self.pixely2.setflags(write=1)
+
         alpha = self.brightSlide.get()
-        new=350
-        if alpha<0:
-            new=0
-            alpha=abs(alpha)
-        for y in range(512):
-            for x in range(512):
-                (r,g,b) = self.pixely[x,y]
-                self.pixely2[x,y] = (clamp(round(r+(new - r)*alpha),0,255),
-                                     clamp(round(g+(new - r)*alpha),0,255),
-                                     clamp(round(b+(new - r)*alpha),0,255),
-                                    )
-                
+        if 0<alpha:
+            self.pixely2 = self.pixely + (alpha*(np.full((512,512,3), 255, dtype=np.uint8) - self.pixely)).astype(np.uint8)
+        else:
+            self.pixely2 = self.pixely + (alpha*self.pixely).astype(np.uint8)
+
+        self.image2 = Image.fromarray(self.pixely2)
         self.photo2=ImageTk.PhotoImage(self.image2)
-        self.obraz2=self.platno.create_image(256,256,image=self.photo2)
+        self.obraz2=self.platno.create_image(257,257,image=self.photo2)
 
     def kresliInverse(self):
-        for y in range(512):
-            for x in range(512):
-                (r,g,b) = self.pixely[x,y]
-                self.pixely2[x,y]=(255-r,255-g,255-b)
-                
+        self.pixely2.setflags(write=1)
+
+        self.pixely2 = (np.full((512,512,3), 255, dtype=np.uint8) - self.pixely)
+        self.image2 = Image.fromarray(self.pixely2)
         self.photo2=ImageTk.PhotoImage(self.image2)
-        self.obraz2=self.platno.create_image(256,256,image=self.photo2)
+        self.obraz2=self.platno.create_image(257,257,image=self.photo2)
 
     def kresliMatrix(self):
-        cnt=0
-        kernel = self.getMartix()
-        for y in range(1,511):
-            for x in range(1,511):
-                (r,g,b)=(0,0,0)
-                for kernelX in range(3):
-                    for kernelY in range(3):
-                        (r,g,b) = (r + self.pixely[x+kernelX-1,y+kernelY-1][0] * kernel[kernelX][kernelY],
-                                   g + self.pixely[x+kernelX-1,y+kernelY-1][1] * kernel[kernelX][kernelY],
-                                   b + self.pixely[x+kernelX-1,y+kernelY-1][2] * kernel[kernelX][kernelY],
-                                   )
-                        cnt+=1
-                self.pixely2[x,y]=(clamp(round(r),0,255),clamp(round(g),0,255),clamp(round(b),0,255))
+        self.pixely2=np.zeros((512,512,3))
+
+        ker = self.getMartix()
+
+        self.pixely2 = self.pixely2.astype(float)
+        self.pixely2[1:511,1:511] = ker[0][0]*self.pixely[0:510:,0:510:].astype(float) + ker[0][1]*self.pixely[0:510:,1:511:] + ker[0][2]*self.pixely[0:510:,2:512:] + \
+                                    ker[1][0]*self.pixely[1:511:,0:510:]               + ker[1][1]*self.pixely[1:511:,1:511:] + ker[1][2]*self.pixely[1:511:,2:512:] + \
+                                    ker[2][0]*self.pixely[2:512:,0:510:]               + ker[2][1]*self.pixely[2:512:,1:511:] + ker[2][2]*self.pixely[2:512:,2:512:]
+        self.pixely2 = self.pixely2.clip(0,255).astype(np.uint8)
+
+        self.image2 = Image.fromarray(self.pixely2)
         self.photo2=ImageTk.PhotoImage(self.image2)
-        self.obraz2=self.platno.create_image(256,256,image=self.photo2)
+        self.obraz2=self.platno.create_image(257,257,image=self.photo2)
 
     def rotAngle(self):
-        
-        self.image2=Image.new("RGB",(512,512),(255,255,255)) #Novej obrázek, celej bílej
-        self.pixely2=self.image2.load()
+        self.pixely2.setflags(write=1)
 
-        a=radians(self.angle.get())
+        a=-radians(self.angle.get())
         matrix = np.array([[ cos(a), sin(a)],
                            [-sin(a), cos(a)]])
         for x in range(512):
             for y in range(512):
                 vec=np.array([x-255,y-255])
                 res=matrix.dot(vec)
-                nX=round(res[0]+255)
-                nY=round(res[1]+255)
+                nX=int(res[0]+255)
+                nY=int(res[1]+255)
                 if 0 <= nX < 512 and 0 <= nY < 512:
                     self.pixely2[x,y] = self.pixely[nX,nY]
                 else:
-                    self.pixely2[x,y] = (255,255,255)
+                    self.pixely2[x,y] = (0,0,0)
 
+        self.image2 = Image.fromarray(self.pixely2)
         self.photo2=ImageTk.PhotoImage(self.image2)
-        self.obraz2=self.platno.create_image(256,256,image=self.photo2)
+        self.obraz2=self.platno.create_image(257,257,image=self.photo2)
 
     def rotFast(self):
         self.photo2=ImageTk.PhotoImage(self.image.rotate((-self.angle.get())%360))
-        self.obraz2=self.platno.create_image(256,256,image=self.photo2)
+        self.obraz2=self.platno.create_image(257,257,image=self.photo2)
 
     def rot90(self,direction):
+        self.pixely2.setflags(write=1)
+
+
         if direction==1:
-            for x in range(512):
-                for y in range(512):
-                    self.pixely2[512-1-y,x] = self.pixely[x,y]
+            self.pixely2 = np.rot90(self.pixely,3)
+            self.image2 = Image.fromarray(self.pixely2)
             self.photo2=ImageTk.PhotoImage(self.image2)
-            self.obraz2=self.platno.create_image(256,256,image=self.photo2)
+            self.obraz2=self.platno.create_image(257,257,image=self.photo2)
         elif direction==-1:
-            for y in range(512):
-                for x in range(512):
-                    self.pixely2[y,512-1-x] = self.pixely[x,y]
+            self.pixely2 = np.rot90(self.pixely)
+            self.image2 = Image.fromarray(self.pixely2)
             self.photo2=ImageTk.PhotoImage(self.image2)
-            self.obraz2=self.platno.create_image(256,256,image=self.photo2)
-
-
-
+            self.obraz2=self.platno.create_image(257,257,image=self.photo2)
 
     def getMartix(self):
         try:
